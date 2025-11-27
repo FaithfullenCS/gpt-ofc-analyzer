@@ -510,6 +510,12 @@ function requestListener(req, res) {
     return;
   }
 
+  if (req.method === 'OPTIONS' && parsedUrl.pathname.startsWith('/api/')) {
+    res.writeHead(204, CORS_HEADERS);
+    res.end();
+    return;
+  }
+
   if (req.method === 'GET' && parsedUrl.pathname === '/api/health') {
     respondJson(res, 200, { status: 'ok', mockMode: MOCK_MODE, limit: DAILY_LIMIT, used: usedRequests });
     return;
