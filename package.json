@@ -1,0 +1,13 @@
+{
+  "name": "gpt-ofc-analyzer",
+  "version": "1.0.0",
+  "description": "Веб-приложение для анализа операционного финансового цикла российских компаний с использованием данных Checko API.",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": ["OFC", "финансовый анализ", "Checko", "express"],
+  "author": "",
+  "license": "MIT"
+}
