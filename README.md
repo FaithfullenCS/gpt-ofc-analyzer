@@ -41,9 +41,9 @@ node server.js
 
 ## Деплой на Vercel
 1. Создайте новый проект, подключите репозиторий.
-2. Укажите команду сборки `npm run start` (Serverless/Edge: Node.js 18+). Внешних пакетов нет, сервер использует только встроенные модули Node.
+2. Команда сборки для локальной проверки: `npm run start` (Node 18+). В облаке используется конфигурация `vercel.json`: она собирает функцию `api/index.js` через `@vercel/node` и публикует статику из `public/`.
 3. В разделе Environment Variables добавьте `CHECKO_API_KEY` (и при необходимости `CHECKO_API_BASE`, `CHECKO_DAILY_LIMIT`).
-  4. После деплоя приложение будет доступно на домене Vercel; фронтенд работает из `public/`, API — маршруты `/api/analyze`, `/api/quota`, `/api/estimate`, `/api/check-connection` вашего сервера.
+4. После деплоя приложение будет доступно на корневом домене; фронтенд работает из `public/`, API — маршруты `/api/analyze`, `/api/quota`, `/api/estimate`, `/api/check-connection` (JSON-ответы без HTML, чтобы избежать ошибок вида «The page could not be found ... not valid JSON»).
 
 ## Формулы
 - **POI** = 365 × ((Запасыᵗ + Запасыᵗ₋₁) / 2) / Себестоимость

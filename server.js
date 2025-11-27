@@ -375,7 +375,7 @@ async function handleAnalyze(req, res) {
   }
 }
 
-const server = http.createServer((req, res) => {
+function requestListener(req, res) {
   const parsedUrl = url.parse(req.url, true);
 
   if (req.method === 'GET' && parsedUrl.pathname === '/api/health') {
@@ -429,8 +429,13 @@ const server = http.createServer((req, res) => {
   }
 
   serveStatic(req, res, parsedUrl);
-});
+}
 
-server.listen(PORT, () => {
-  console.log(`OFC analyzer server listening on port ${PORT}`);
-});
+if (require.main === module) {
+  const server = http.createServer(requestListener);
+  server.listen(PORT, () => {
+    console.log(`OFC analyzer server listening on port ${PORT}`);
+  });
+}
+
+module.exports = requestListener;

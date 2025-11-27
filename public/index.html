@@ -12,9 +12,26 @@
       <div>
         <p class="badge">Исследовательский инструмент</p>
         <h1>Анализ операционного финансового цикла российских компаний</h1>
-        <p class="lead">Формулы и расчёты соответствуют методологии кандидатской диссертации. Данные запрашиваются из Checko API с учётом суточного лимита и могут исполняться сразу для нескольких компаний.</p>
+        <p class="lead">Формулы соответствуют методологии диссертации: OFC, ликвидность, рентабельность и устойчивость. Можно загружать несколько ИНН и периодов (год/квартал) за один запрос, контролируя расход лимита Checko.</p>
+        <div class="hero-steps">
+          <div>
+            <strong>1. Ключ Checko</strong>
+            <p>Переменная <code>CHECKO_API_KEY</code> — локально в .env или в Vercel → Environment Variables.</p>
+          </div>
+          <div>
+            <strong>2. Проверка соединения</strong>
+            <p>Нажмите «Проверить соединение» — не расходует лимит и сообщает, доступен ли api.checko.ru.</p>
+          </div>
+          <div>
+            <strong>3. Запрос</strong>
+            <p>Вставьте ИНН и периоды, уточните секции, затем «Посчитать запросы» и «Запустить анализ».</p>
+          </div>
+        </div>
       </div>
-      <button type="button" id="theme-toggle" class="secondary ghost" aria-label="Переключить тему">Тёмная тема</button>
+      <div class="toolbar">
+        <button type="button" id="theme-toggle" class="secondary ghost" aria-label="Переключить тему">Тёмная тема</button>
+        <div class="pill">Лимит: 100 запросов/сутки</div>
+      </div>
     </div>
   </header>
 
@@ -58,7 +75,7 @@
       <p class="help">Ключ Checko нужно передать в переменную окружения <code>CHECKO_API_KEY</code>: локально через <code>.env</code> или <code>export</code>, на Vercel — в Project → Settings → Environment Variables.</p>
     </section>
 
-    <section id="status" class="notice hidden"></section>
+    <section id="status" class="notice hidden" role="status" aria-live="polite"></section>
 
     <section class="card" id="quota-card">
       <h3>Лимит API</h3>

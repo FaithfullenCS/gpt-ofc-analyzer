@@ -29,6 +29,7 @@ body {
               var(--bg);
   color: var(--text);
   min-height: 100vh;
+  line-height: 1.55;
 }
 
 .container {
@@ -54,8 +55,32 @@ body {
   height: 40px;
 }
 
+.toolbar {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.pill {
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(34, 211, 238, 0.18);
+  color: var(--text);
+  font-weight: 600;
+  border: 1px solid var(--border);
+}
+
 h1 { font-size: 32px; margin: 12px 0; }
 .lead { color: var(--muted); max-width: 780px; }
+.hero-steps {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+.hero-steps p { color: var(--muted); margin: 6px 0 0; font-size: 14px; }
+.hero-steps strong { color: var(--text); }
 .badge {
   display: inline-block;
   padding: 6px 12px;
@@ -126,6 +151,9 @@ button.ghost { background: transparent; border-color: var(--border); }
   border: 1px solid var(--border);
   background: rgba(34, 211, 238, 0.08);
   color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .notice.error { background: rgba(239, 68, 68, 0.1); color: #fecdd3; }
@@ -143,12 +171,13 @@ button.ghost { background: transparent; border-color: var(--border); }
   gap: 10px;
 }
 
-.metric {
+.metric { 
   padding: 12px;
   background: var(--input);
   border: 1px solid var(--border);
   border-radius: 12px;
 }
+.metric strong { display: block; margin-top: 2px; }
 
 .metric span { display: block; color: var(--muted); font-size: 13px; }
 .metric strong { font-size: 18px; }
