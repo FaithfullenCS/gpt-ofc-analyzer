@@ -228,9 +228,9 @@ function parsePeriods(value) {
 function renderLocalEstimate() {
   const inns = parseInns(innsInput?.value || '');
   const periods = parsePeriods(periodsInput?.value || '');
-  const required = inns.length * periods.length;
+  const required = inns.length;
 
-  localEstimateBox.innerHTML = `<div class="row"><span>Локальная оценка</span><strong>${required || '—'} запросов</strong></div><div class="row"><span>ИНН × периоды</span><strong>${inns.length} × ${periods.length}</strong></div>`;
+  localEstimateBox.innerHTML = `<div class="row"><span>Локальная оценка</span><strong>${required || '—'} запросов</strong></div><div class="row"><span>По одному запросу на ИНН</span><strong>${inns.length} ИНН, ${periods.length} период(ов)</strong></div>`;
 }
 
 async function refreshQuota() {
@@ -268,7 +268,7 @@ async function estimateRequests() {
     if (!response.ok) throw new Error(data.error || 'Не удалось оценить запросы');
     showStatus(
       'info',
-      `Потребуется ~${data.required} запросов (ИНН: ${inns.length}, периодов: ${periods.length}). Остаток лимита: ${data.remaining}/${data.limit}.`
+      `Потребуется ~${data.required} запросов (1 запрос на ИНН: ${inns.length} шт., периодов: ${periods.length}). Остаток лимита: ${data.remaining}/${data.limit}.`
     );
   } catch (error) {
     showStatus('error', error.message);
@@ -295,11 +295,9 @@ async function analyze(event) {
   const formData = new FormData(form);
   const inns = parseInns(formData.get('inns') || '');
   const periods = parsePeriods(formData.get('periods') || '');
-  const sections = formData.getAll('sections');
   const payload = {
     inns,
     periods,
-    sections,
   };
 
   if (formData.get('mockMode') === 'true') {
@@ -324,9 +322,11 @@ async function analyze(event) {
     }
 
     renderResults(data.results);
+    const paramsHint = data.meta?.params?.length ? ` Параметры API: ${data.meta.params.join(', ')}.` : '';
+    const baseHint = data.meta?.baseUrl ? ` База: ${data.meta.baseUrl}.` : '';
     showStatus(
       'success',
-      `Запрос выполнен. Периоды: ${describePeriods(periods)}. Секции: ${data.meta.sections.join(', ')}. Использовано ${data.meta.used}/${data.meta.limit}.`
+      `Запрос выполнен. Периоды: ${describePeriods(periods)}.${paramsHint}${baseHint} Использовано ${data.meta.used}/${data.meta.limit}.`
     );
     refreshQuota();
   } catch (error) {

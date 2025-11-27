@@ -22,7 +22,7 @@
 # 1) Установите Node.js (v18+). Внешние зависимости не требуются
 # 2) Создайте .env с ключом Checko
 export CHECKO_API_KEY=ВАШ_API_КЛЮЧ
-export CHECKO_API_BASE=https://api.checko.ru/v3/companies
+export CHECKO_API_BASE=https://api.checko.ru/v2/finances
 
 # 3) Старт сервера
 npm run start
@@ -34,7 +34,7 @@ node server.js
 ### Переменные окружения
 - `PORT` — порт HTTP (по умолчанию 3000).
 - `CHECKO_API_KEY` — ключ Checko API (обязателен для боевого режима).
-- `CHECKO_API_BASE` — базовый URL Checko (по умолчанию `https://api.checko.ru/v3/companies`).
+- `CHECKO_API_BASE` — базовый URL Checko (по умолчанию `https://api.checko.ru/v2/finances`).
 - `CHECKO_MOCK_MODE` — если `true`, принудительно использовать встроенные данные из `data/sample-financials.json`.
 - `CHECKO_DAILY_LIMIT` — дневной лимит запросов (по умолчанию 100) для расчёта остатка.
 - Переменные можно задать локально через `export` или на Vercel через Project → Settings → Environment Variables. Ключи не прошиваются в код.
@@ -68,9 +68,9 @@ node server.js
 - `data/sample-financials.json` — встроенные данные для демо-режима.
 
 ## Примечания по интеграции с Checko API
-- Базовый путь задаётся переменной `CHECKO_API_BASE`. Запрос формируется как `${CHECKO_API_BASE}/{ИНН}/financials?year={год}&period=year|quarter&quarter={квартал?}&key={API_KEY}&extended=1&sections=balance_sheet,income_statement,extended,...` (параметр `period` обязателен, по умолчанию ставится `year`).
-- Обязательные секции (баланс, ОПУ и extended) добавляются автоматически; дополнительные секции управляются чекбоксами на форме.
-- Обратите внимание на дневной лимит (100 запросов на бесплатном тарифе). Используйте калькулятор запросов (ИНН × число периодов) перед массовыми обращениями.
+- Базовый путь задаётся переменной `CHECKO_API_BASE`. Запрос формируется как `${CHECKO_API_BASE}?key={API_KEY}&inn={ИНН}&extended=true[&ogrn=...][&kpp=...]` — параметры периода, секций или `year`/`quarter` не передаются, нужные года/кварталы выбираются из массива `finances` в ответе.
+- Для серверного запроса достаточно `inn` (или `ogrn` в качестве страховки) и ключа `CHECKO_API_KEY`. Дополнительные секции не передаются, так как эндпоинт `/v2/finances` отдаёт полный набор расширенных полей.
+- Обратите внимание на дневной лимит (100 запросов на бесплатном тарифе). В расходе теперь учитывается один запрос на ИНН; используйте калькулятор запросов перед массовыми обращениями.
 - Проверка соединения `/api/check-connection` не расходует лимит.
 
 ## Как разрешать merge-конфликты (Accept Incoming / Current / Both)
