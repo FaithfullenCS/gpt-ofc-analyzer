@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Анализ ОФЦ | Checko</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="hero">
+    <div class="container">
+      <p class="badge">Исследовательский инструмент</p>
+      <h1>Анализ операционного финансового цикла российских компаний</h1>
+      <p class="lead">Формулы и расчёты соответствуют методологии кандидатской диссертации. Данные загружаются из Checko API или демонстрационного набора.</p>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <h2>Параметры запроса</h2>
+      <form id="analysis-form" class="form-grid">
+        <label class="form-field">
+          <span>ИНН компании</span>
+          <input type="text" name="inn" placeholder="7707083893" required>
+        </label>
+        <label class="form-field">
+          <span>Текущий год</span>
+          <input type="number" name="year" min="2005" max="2100" value="2023" required>
+        </label>
+        <label class="form-field">
+          <span>Предыдущий год</span>
+          <input type="number" name="previousYear" min="2004" max="2100" placeholder="Авто (текущий - 1)">
+        </label>
+        <label class="form-field">
+          <span>Режим демонстрации</span>
+          <select name="mockMode" id="mockMode">
+            <option value="auto" selected>Авто (использовать Checko при наличии ключа)</option>
+            <option value="true">Всегда демо-данные</option>
+          </select>
+        </label>
+        <button type="submit" class="primary">Запустить анализ</button>
+      </form>
+      <p class="help">Бесплатный тариф Checko ограничен 100 запросами в сутки. В демонстрационном режиме используются встроенные финансовые отчёты.</p>
+    </section>
+
+    <section id="status" class="notice hidden"></section>
+
+    <section id="results" class="grid two-columns hidden">
+      <div class="card">
+        <h3>Операционный финансовый цикл</h3>
+        <div id="ofc-metrics" class="metrics"></div>
+      </div>
+      <div class="card">
+        <h3>Ликвидность</h3>
+        <div id="liquidity-metrics" class="metrics"></div>
+      </div>
+      <div class="card">
+        <h3>Рентабельность</h3>
+        <div id="profitability-metrics" class="metrics"></div>
+      </div>
+      <div class="card">
+        <h3>Финансовая устойчивость</h3>
+        <div id="stability-metrics" class="metrics"></div>
+      </div>
+    </section>
+
+    <section id="statements" class="card hidden">
+      <h3>Исходные данные (нормализовано)</h3>
+      <div class="statements-grid">
+        <div>
+          <h4 id="current-year-title">Текущий год</h4>
+          <div id="current-statement" class="statement"></div>
+        </div>
+        <div>
+          <h4 id="previous-year-title">Предыдущий год</h4>
+          <div id="previous-statement" class="statement"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="container footer">
+    <p>Формулы: POI = 365 × ((Запасыₜ + Запасыₜ₋₁) / 2) / Себестоимость; PPD = 365 × ((ДЗₜ + ДЗₜ₋₁) / 2) / Выручка; PPA = 365 × ((КЗₜ + КЗₜ₋₁) / 2) / Себестоимость; OFC = POI + PPD - PPA.</p>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>
