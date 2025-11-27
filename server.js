@@ -2,14 +2,24 @@ const http = require('http');
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
-const url = require('url');
+const { URL, URLSearchParams } = require('url');
 const net = require('net');
 
 const PORT = process.env.PORT || 3000;
 const CHECKO_API_KEY = process.env.CHECKO_API_KEY;
-const CHECKO_BASE_URL = process.env.CHECKO_API_BASE || 'https://api.checko.ru/v3/companies';
+const CHECKO_BASE_URL = process.env.CHECKO_API_BASE || 'https://api.checko.ru/v2/finances';
 const MOCK_MODE = process.env.CHECKO_MOCK_MODE === 'true';
 const DAILY_LIMIT = Number(process.env.CHECKO_DAILY_LIMIT || 100);
+
+const parsedCheckoBase = (() => {
+  try {
+    return new URL(CHECKO_BASE_URL);
+  } catch (error) {
+    return null;
+  }
+})();
+const CHECKO_HOST = parsedCheckoBase?.hostname || 'api.checko.ru';
+const CHECKO_PORT = parsedCheckoBase?.port || (parsedCheckoBase?.protocol === 'http:' ? 80 : 443);
 
 const sampleDataPath = path.join(__dirname, 'data', 'sample-financials.json');
 let sampleReports = [];
@@ -22,6 +32,12 @@ try {
 
 let usedRequests = 0;
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
 const mimeTypes = {
   '.html': 'text/html',
   '.css': 'text/css',
@@ -30,7 +46,7 @@ const mimeTypes = {
 };
 
 function respondJson(res, status, payload) {
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', ...CORS_HEADERS });
   res.end(JSON.stringify(payload));
 }
 
@@ -107,24 +123,11 @@ function httpGetJson(targetUrl) {
   });
 }
 
-function pickReport(year) {
-  const match = sampleReports.find(report => String(report.year) === String(year));
-  return match || sampleReports[0];
-}
-
 function normalizeField(value) {
   if (value === undefined || value === null || Number.isNaN(Number(value))) {
     return 0;
   }
   return Number(value);
-}
-
-function requiredSections(selections = []) {
-  const set = new Set(selections);
-  set.add('balance_sheet');
-  set.add('income_statement');
-  set.add('extended');
-  return Array.from(set);
 }
 
 function average(current, previous) {
@@ -143,39 +146,70 @@ function safeDivide(numerator, denominator) {
   return num / den;
 }
 
+function normalizeLookup(source) {
+  if (Array.isArray(source)) {
+    return source.reduce((acc, item) => {
+      if (!item) return acc;
+      if (item.code) {
+        acc[item.code] = item.value ?? item.amount ?? item.sum ?? item.total;
+      }
+      if (item.name) {
+        acc[item.name] = item.value ?? item.amount ?? item.sum ?? item.total;
+      }
+      return acc;
+    }, {});
+  }
+  return source || {};
+}
+
 function extractValue(source, preferredKeys) {
+  const lookup = normalizeLookup(source);
   for (const key of preferredKeys) {
-    if (Object.prototype.hasOwnProperty.call(source, key) && source[key] !== null && source[key] !== undefined) {
-      return source[key];
+    if (Object.prototype.hasOwnProperty.call(lookup, key) && lookup[key] !== null && lookup[key] !== undefined) {
+      return lookup[key];
     }
   }
   return 0;
 }
 
+function detectPeriod(report = {}) {
+  const period = report.period || report.report_period || {};
+  const year = report.year ?? period.year ?? report.report_year ?? report.fiscal_year ?? report.fy;
+  const quarter = report.quarter ?? period.quarter ?? report.report_quarter ?? report.fiscal_quarter;
+  return {
+    year: year !== undefined && year !== null ? Number(year) : undefined,
+    quarter: quarter !== undefined && quarter !== null ? Number(quarter) : undefined,
+  };
+}
+
 function normalizeReport(raw) {
-  const balance = raw.balance_sheet || raw.balance || {};
-  const income = raw.income_statement || raw.income || {};
+  const period = detectPeriod(raw);
+  const finances = raw.finances || raw.financials || {};
+  const balance = raw.balance_sheet || raw.balance || finances.balance_sheet || finances.balance || raw.balance_form || {};
+  const income =
+    raw.income_statement || raw.income || finances.income_statement || finances.income || raw.financial_results || raw.opu || {};
   const assets = raw.assets || {};
-  const liabilities = raw.liabilities || {};
 
   return {
-    year: raw.year,
+    year: period.year,
+    quarter: period.quarter,
     balance_sheet: {
-      inventories: extractValue(balance, ['inventories', 'stocks', 'zapasy']),
-      accounts_receivable: extractValue(balance, ['accounts_receivable', 'debtors', 'debitors']),
-      accounts_payable: extractValue(balance, ['accounts_payable', 'creditors']),
-      current_assets: extractValue(balance, ['current_assets']),
-      current_liabilities: extractValue(balance, ['current_liabilities']),
-      cash_and_cash_equivalents: extractValue(balance, ['cash_and_cash_equivalents', 'cash']),
-      total_assets: extractValue(balance, ['total_assets', 'assets_total', 'balance_total', 'balance']),
-      total_liabilities: extractValue(balance, ['total_liabilities', 'liabilities_total']),
-      equity: extractValue(balance, ['equity', 'capital']) || extractValue(assets, ['equity']) || extractValue(raw, ['equity']),
+      inventories: extractValue(balance, ['inventories', 'stocks', 'zapasy', '1210']),
+      accounts_receivable: extractValue(balance, ['accounts_receivable', 'debtors', 'debitors', '1230']),
+      accounts_payable: extractValue(balance, ['accounts_payable', 'creditors', '1520']),
+      current_assets: extractValue(balance, ['current_assets', '1200']),
+      current_liabilities: extractValue(balance, ['current_liabilities', '1500']),
+      cash_and_cash_equivalents: extractValue(balance, ['cash_and_cash_equivalents', 'cash', '1250']),
+      total_assets: extractValue(balance, ['total_assets', 'assets_total', 'balance_total', 'balance', '1600', '1700']),
+      total_liabilities: extractValue(balance, ['total_liabilities', 'liabilities_total', '1400', '1500', '1800']),
+      equity:
+        extractValue(balance, ['equity', 'capital', '1300']) || extractValue(assets, ['equity']) || extractValue(raw, ['equity']),
     },
     income_statement: {
-      revenue: extractValue(income, ['revenue', 'sales']),
-      cost_of_goods_sold: extractValue(income, ['cost_of_goods_sold', 'cogs', 'prime_cost']),
-      gross_profit: extractValue(income, ['gross_profit']),
-      net_income: extractValue(income, ['net_income', 'profit']),
+      revenue: extractValue(income, ['revenue', 'sales', '2110']),
+      cost_of_goods_sold: extractValue(income, ['cost_of_goods_sold', 'cogs', 'prime_cost', '2120']),
+      gross_profit: extractValue(income, ['gross_profit', '2100']),
+      net_income: extractValue(income, ['net_income', 'profit', '2400', '2500']),
     },
   };
 }
@@ -244,36 +278,36 @@ function remainingRequests() {
   return remaining > 0 ? remaining : 0;
 }
 
-function estimatedRequests(innCount, periodCount) {
-  return innCount * Math.max(periodCount, 0);
+function estimatedRequests(innCount) {
+  return Math.max(innCount, 0);
 }
 
-async function fetchCheckoFinancials(inn, year, options = {}) {
-  const { forceMock = false, sections = [], quarter } = options;
+async function fetchCheckoFinancials(params, options = {}) {
+  const { inn, ogrn, kpp } = params;
+  const { forceMock = false } = options;
   if (forceMock || MOCK_MODE) {
-    return pickReport(year);
+    return sampleReports;
   }
 
   if (!CHECKO_API_KEY) {
     throw new Error('CHECKO_API_KEY не задан. Укажите ключ или включите демо-режим.');
   }
 
-  const params = new url.URLSearchParams({
-    year,
+  const query = new URLSearchParams({
     key: CHECKO_API_KEY,
-    extended: '1',
-    period: 'year',
+    extended: 'true',
+    inn,
   });
 
-  if (quarter) {
-    params.append('period', 'quarter');
-    params.append('quarter', quarter);
+  if (ogrn) {
+    query.set('ogrn', ogrn);
   }
 
-  const normalizedSections = requiredSections(sections);
-  params.append('sections', normalizedSections.join(','));
+  if (kpp) {
+    query.set('kpp', kpp);
+  }
 
-  const queryUrl = `${CHECKO_BASE_URL}/${encodeURIComponent(inn)}/financials?${params.toString()}`;
+  const queryUrl = `${CHECKO_BASE_URL}?${query.toString()}`;
   const data = await httpGetJson(queryUrl).catch(err => {
     throw new Error(`Ошибка запроса к Checko (${queryUrl}): ${err.message}`);
   });
@@ -281,12 +315,95 @@ async function fetchCheckoFinancials(inn, year, options = {}) {
   return data;
 }
 
+function selectReport(finances = [], targetPeriod) {
+  const matches = finances
+    .map(item => ({
+      report: item,
+      period: detectPeriod(item),
+    }))
+    .filter(item => Number(item.period.year) === Number(targetPeriod.year))
+    .filter(item => {
+      if (targetPeriod.quarter === undefined) return true;
+      return Number(item.period.quarter || 0) === Number(targetPeriod.quarter);
+    });
+
+  if (!matches.length) return null;
+
+  if (targetPeriod.quarter === undefined) {
+    const withoutQuarter = matches.find(item => !item.period.quarter);
+    if (withoutQuarter) return withoutQuarter.report;
+    return matches.sort((a, b) => (b.period.quarter || 0) - (a.period.quarter || 0))[0].report;
+  }
+
+  return matches[0].report;
+}
+
+function extractFinancesPayload(response) {
+  const visited = new Set();
+  const queue = [response];
+  const prioritizedKeys = ['finances', 'data', 'items', 'reports', 'results', 'entries', 'values'];
+
+  const looksLikeReport = entry => {
+    if (!entry || typeof entry !== 'object') return false;
+    return (
+      'year' in entry ||
+      'period' in entry ||
+      'balance_sheet' in entry ||
+      'balance' in entry ||
+      'income_statement' in entry ||
+      'income' in entry ||
+      'financials' in entry
+    );
+  };
+
+  while (queue.length) {
+    const current = queue.shift();
+    if (current === null || current === undefined) continue;
+
+    if (typeof current === 'object' && visited.has(current)) {
+      continue;
+    }
+
+    if (Array.isArray(current)) {
+      const looksLikeFinances = current.some(looksLikeReport);
+      if (looksLikeFinances) {
+        return current;
+      }
+      current.forEach(item => queue.push(item));
+      continue;
+    }
+
+    if (typeof current === 'object') {
+      visited.add(current);
+
+      if (current.finances && Array.isArray(current.finances)) {
+        return current.finances;
+      }
+
+      const objectValues = Object.values(current);
+      if (objectValues.length && objectValues.every(looksLikeReport)) {
+        return objectValues;
+      }
+
+      for (const key of prioritizedKeys) {
+        if (Object.prototype.hasOwnProperty.call(current, key)) {
+          queue.push(current[key]);
+        }
+      }
+
+      objectValues.forEach(value => queue.push(value));
+    }
+  }
+
+  return [];
+}
+
 async function handleAnalyze(req, res) {
   try {
     const body = await parseBody(req);
-    const { inns = [], inn, periods = [], year, previousYear, forceMock, sections = [] } = body;
+    const { inns = [], inn, periods = [], year, previousYear, forceMock, ogrn, kpp } = body;
 
-    const innList = Array.isArray(inns) ? inns.filter(Boolean) : [];
+    const innList = Array.from(new Set((Array.isArray(inns) ? inns : []).filter(Boolean)));
     if (inn && !innList.includes(inn)) {
       innList.push(inn);
     }
@@ -318,7 +435,7 @@ async function handleAnalyze(req, res) {
     }
 
     const mock = forceMock === true || forceMock === 'true';
-    const neededRequests = mock ? 0 : estimatedRequests(innList.length, sortedPeriods.length);
+    const neededRequests = mock ? 0 : estimatedRequests(innList.length);
 
     if (!mock && remainingRequests() < neededRequests) {
       respondJson(res, 429, {
@@ -329,19 +446,36 @@ async function handleAnalyze(req, res) {
       return;
     }
 
-    const normalizedSections = requiredSections(sections);
+    const requestParams = ['inn', 'key', 'extended=true'];
+    if (ogrn) requestParams.push('ogrn');
+    if (kpp) requestParams.push('kpp');
 
     const computations = await Promise.all(
       innList.map(async candidateInn => {
         const perPeriod = [];
         let previousReport = null;
 
-        for (const period of sortedPeriods) {
-          const currentReport = await fetchCheckoFinancials(candidateInn, period.year, {
+        const response = await fetchCheckoFinancials(
+          { inn: candidateInn, ogrn, kpp },
+          {
             forceMock: mock,
-            sections: normalizedSections,
-            quarter: period.quarter,
-          });
+          }
+        );
+
+        const finances = extractFinancesPayload(response);
+
+        if (!finances.length) {
+          const responseKeys = response && typeof response === 'object' ? Object.keys(response) : [];
+          const hint = responseKeys.length ? ` (ключи ответа: ${responseKeys.slice(0, 5).join(', ')})` : '';
+          throw new Error(`Не найдены финансовые данные для ИНН ${candidateInn}${hint}`);
+        }
+
+        for (const period of sortedPeriods) {
+          const currentReport = selectReport(finances, period);
+
+          if (!currentReport) {
+            throw new Error(`Нет данных для ${candidateInn} за период ${period.year}${period.quarter ? `-Q${period.quarter}` : ''}`);
+          }
 
           const metrics = calculateMetrics(currentReport, previousReport);
           perPeriod.push({
@@ -369,9 +503,10 @@ async function handleAnalyze(req, res) {
     respondJson(res, 200, {
       meta: {
         mockMode: mock || MOCK_MODE,
-        sections: normalizedSections,
         used: usedRequests,
         limit: DAILY_LIMIT,
+        params: requestParams,
+        baseUrl: CHECKO_BASE_URL,
       },
       results: computations,
     });
@@ -382,7 +517,13 @@ async function handleAnalyze(req, res) {
 }
 
 function requestListener(req, res) {
-  const parsedUrl = url.parse(req.url, true);
+  const parsedUrl = new URL(req.url, `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host || 'localhost'}`);
+
+  if (req.method === 'OPTIONS' && parsedUrl.pathname.startsWith('/api/')) {
+    res.writeHead(204, CORS_HEADERS);
+    res.end();
+    return;
+  }
 
   if (req.method === 'GET' && parsedUrl.pathname === '/api/health') {
     respondJson(res, 200, { status: 'ok', mockMode: MOCK_MODE, limit: DAILY_LIMIT, used: usedRequests });
@@ -398,9 +539,8 @@ function requestListener(req, res) {
     parseBody(req)
       .then(body => {
         const { inns = [], periods = [] } = body;
-        const innCount = Array.isArray(inns) ? inns.filter(Boolean).length : 0;
-        const periodCount = Array.isArray(periods) ? periods.filter(p => p && p.year).length : 0;
-        const required = estimatedRequests(innCount, periodCount);
+        const innCount = Array.isArray(inns) ? Array.from(new Set(inns.filter(Boolean))).length : 0;
+        const required = estimatedRequests(innCount);
         respondJson(res, 200, { required, remaining: remainingRequests(), limit: DAILY_LIMIT });
       })
       .catch(() => respondJson(res, 400, { error: 'Некорректное тело запроса' }));
@@ -408,7 +548,7 @@ function requestListener(req, res) {
   }
 
   if (req.method === 'GET' && parsedUrl.pathname === '/api/check-connection') {
-    const socket = net.connect(443, 'api.checko.ru');
+    const socket = net.connect(CHECKO_PORT, CHECKO_HOST);
     socket.setTimeout(3000);
     socket.on('connect', () => {
       socket.destroy();
