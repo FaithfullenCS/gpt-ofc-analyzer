@@ -6,6 +6,18 @@
   --text: #e5e7eb;
   --border: #1f2937;
   --warning: #f97316;
+  --input: #0f172a;
+}
+
+:root[data-theme='light'] {
+  --bg: #f8fafc;
+  --card: #ffffff;
+  --accent: #0ea5e9;
+  --muted: #475467;
+  --text: #0f172a;
+  --border: #e2e8f0;
+  --warning: #f59e0b;
+  --input: #f1f5f9;
 }
 
 * { box-sizing: border-box; }
@@ -28,6 +40,18 @@ body {
   padding: 48px 0 32px;
   border-bottom: 1px solid var(--border);
   background: linear-gradient(180deg, rgba(34, 211, 238, 0.12), transparent);
+}
+
+.hero-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.hero-head button {
+  margin-top: 6px;
+  height: 40px;
 }
 
 h1 { font-size: 32px; margin: 12px 0; }
@@ -70,7 +94,7 @@ input, select, button, textarea {
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid var(--border);
-  background: #0f172a;
+  background: var(--input);
   color: var(--text);
   font-size: 15px;
 }
@@ -90,6 +114,8 @@ button.primary {
 button.primary:hover { transform: translateY(-1px); box-shadow: 0 10px 30px rgba(34, 211, 238, 0.25); }
 button.secondary { background: rgba(255,255,255,0.04); cursor: pointer; }
 button.secondary:hover { border-color: var(--accent); }
+button.ghost { background: transparent; border-color: var(--border); }
+:root[data-theme='light'] button.secondary { background: #eef2f7; }
 
 .help { color: var(--muted); font-size: 14px; margin-top: 10px; }
 
@@ -119,7 +145,7 @@ button.secondary:hover { border-color: var(--accent); }
 
 .metric {
   padding: 12px;
-  background: #0f172a;
+  background: var(--input);
   border: 1px solid var(--border);
   border-radius: 12px;
 }
@@ -135,7 +161,7 @@ button.secondary:hover { border-color: var(--accent); }
 }
 
 .statement {
-  background: #0f172a;
+  background: var(--input);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 12px;
@@ -163,3 +189,8 @@ button.secondary:hover { border-color: var(--accent); }
 .company-block .muted { color: var(--muted); margin: 0; }
 .company-block .card.nested { margin: 6px 0; box-shadow: none; }
 .period-block { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; }
+
+@media (max-width: 720px) {
+  .hero-head { flex-direction: column; }
+  .hero-head button { width: 100%; }
+}

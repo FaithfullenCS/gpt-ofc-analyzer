@@ -423,6 +423,11 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (parsedUrl.pathname.startsWith('/api/')) {
+    respondJson(res, 404, { error: 'Неизвестный API-маршрут', path: parsedUrl.pathname });
+    return;
+  }
+
   serveStatic(req, res, parsedUrl);
 });
 

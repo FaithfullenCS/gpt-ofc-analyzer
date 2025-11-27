@@ -5,14 +5,42 @@ const quotaStats = document.getElementById('quota-stats');
 const localEstimateBox = document.getElementById('local-estimate');
 const estimateButton = document.getElementById('estimate');
 const connectionButton = document.getElementById('check-connection');
+const themeToggle = document.getElementById('theme-toggle');
 const innsInput = document.querySelector('textarea[name="inns"]');
 const periodsInput = document.querySelector('textarea[name="periods"]');
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('theme', theme);
+  themeToggle.textContent = theme === 'light' ? 'Тёмная тема' : 'Светлая тема';
+}
+
+function initTheme() {
+  const saved = localStorage.getItem('theme');
+  const preferred = saved || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+  applyTheme(preferred);
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'dark';
+  applyTheme(current === 'dark' ? 'light' : 'dark');
+}
 
 function formatNumber(value, digits = 2) {
   if (value === null || value === undefined) return '—';
   const number = Number(value);
   if (Number.isNaN(number)) return '—';
   return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: digits }).format(number);
+}
+
+async function parseJsonResponse(response) {
+  const text = await response.text();
+  try {
+    return JSON.parse(text || '{}');
+  } catch (error) {
+    const preview = text ? text.slice(0, 160) : 'пустой ответ';
+    throw new Error(`Некорректный ответ сервера: ${preview}`);
+  }
 }
 
 function showStatus(type, message) {
@@ -208,7 +236,7 @@ function renderLocalEstimate() {
 async function refreshQuota() {
   try {
     const response = await fetch('/api/quota');
-    const data = await response.json();
+    const data = await parseJsonResponse(response);
     if (!response.ok) throw new Error(data.error || 'Ошибка обновления лимита');
     quotaStats.innerHTML = `<div class="row"><span>Использовано</span><strong>${data.used} из ${data.limit}</strong></div><div class="row"><span>Остаток</span><strong>${data.remaining}</strong></div>`;
   } catch (error) {
@@ -236,7 +264,7 @@ async function estimateRequests() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    const data = await response.json();
+    const data = await parseJsonResponse(response);
     if (!response.ok) throw new Error(data.error || 'Не удалось оценить запросы');
     showStatus(
       'info',
@@ -251,7 +279,7 @@ async function checkConnection() {
   clearStatus();
   try {
     const response = await fetch('/api/check-connection');
-    const data = await response.json();
+    const data = await parseJsonResponse(response);
     if (!response.ok || !data.ok) throw new Error(data.error || 'Соединение недоступно');
     showStatus('success', 'Соединение с api.checko.ru установлено без расхода лимита.');
   } catch (error) {
@@ -289,7 +317,7 @@ async function analyze(event) {
       body: JSON.stringify(payload),
     });
 
-    const data = await response.json();
+    const data = await parseJsonResponse(response);
     if (!response.ok) {
       throw new Error(data.error || 'Неизвестная ошибка');
     }
@@ -311,5 +339,7 @@ estimateButton.addEventListener('click', estimateRequests);
 connectionButton.addEventListener('click', checkConnection);
 innsInput.addEventListener('input', renderLocalEstimate);
 periodsInput.addEventListener('input', renderLocalEstimate);
+themeToggle.addEventListener('click', toggleTheme);
+initTheme();
 refreshQuota();
 renderLocalEstimate();

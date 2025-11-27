@@ -8,10 +8,13 @@
 </head>
 <body>
   <header class="hero">
-    <div class="container">
-      <p class="badge">Исследовательский инструмент</p>
-      <h1>Анализ операционного финансового цикла российских компаний</h1>
-      <p class="lead">Формулы и расчёты соответствуют методологии кандидатской диссертации. Данные запрашиваются из Checko API с учётом суточного лимита и могут исполняться сразу для нескольких компаний.</p>
+    <div class="container hero-head">
+      <div>
+        <p class="badge">Исследовательский инструмент</p>
+        <h1>Анализ операционного финансового цикла российских компаний</h1>
+        <p class="lead">Формулы и расчёты соответствуют методологии кандидатской диссертации. Данные запрашиваются из Checko API с учётом суточного лимита и могут исполняться сразу для нескольких компаний.</p>
+      </div>
+      <button type="button" id="theme-toggle" class="secondary ghost" aria-label="Переключить тему">Тёмная тема</button>
     </div>
   </header>
 
@@ -22,6 +25,7 @@
         <label class="form-field full-row">
           <span>ИНН компаний (по одному в строке)</span>
           <textarea name="inns" rows="3" placeholder="7707083893&#10;1234567890" required></textarea>
+          <p class="help">Можно вставлять списки с разделителями запятая/точка с запятой/перевод строки.</p>
         </label>
         <label class="form-field full-row">
           <span>Периоды (год или квартал, формат: 2023 или 2023-Q1, по одному в строке)</span>
@@ -61,6 +65,16 @@
       <div id="quota-stats" class="quota"></div>
       <div id="local-estimate" class="quota"></div>
       <p class="help">Калькулятор запросов учитывает количество ИНН и периодов. Метка Extended для финансовых показателей устанавливается автоматически.</p>
+    </section>
+
+    <section class="card">
+      <h3>Куда вставлять API key</h3>
+      <ul>
+        <li>Локально: создайте файл <code>.env</code> с переменной <code>CHECKO_API_KEY=ВАШ_КЛЮЧ</code> или выполните <code>export CHECKO_API_KEY=...</code> перед запуском.</li>
+        <li>Vercel: Project → Settings → Environment Variables → ключ <code>CHECKO_API_KEY</code> со значением вашего токена Checko, перезапустите деплой.</li>
+        <li>Дополнительно можно указать <code>CHECKO_DAILY_LIMIT</code> (по умолчанию 100) и <code>CHECKO_API_BASE</code>, если требуется.</li>
+      </ul>
+      <p class="help">Подключение проверяется кнопкой «Проверить соединение» без расхода лимита.</p>
     </section>
 
     <section id="results" class="hidden"></section>
