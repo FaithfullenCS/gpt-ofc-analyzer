@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Анализ ОФЦ | Checko</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="hero">
+    <div class="container hero-head">
+      <div>
+        <p class="badge">Исследовательский инструмент</p>
+        <h1>Анализ операционного финансового цикла российских компаний</h1>
+        <p class="lead">Формулы соответствуют методологии диссертации: OFC, ликвидность, рентабельность и устойчивость. Можно загружать несколько ИНН и периодов (год/квартал) за один запрос, контролируя расход лимита Checko.</p>
+        <div class="hero-steps">
+          <div>
+            <strong>1. Ключ Checko</strong>
+            <p>Переменная <code>CHECKO_API_KEY</code> — локально в .env или в Vercel → Environment Variables.</p>
+          </div>
+          <div>
+            <strong>2. Проверка соединения</strong>
+            <p>Нажмите «Проверить соединение» — не расходует лимит и сообщает, доступен ли api.checko.ru.</p>
+          </div>
+          <div>
+            <strong>3. Запрос</strong>
+            <p>Вставьте ИНН и периоды, уточните секции, затем «Посчитать запросы» и «Запустить анализ».</p>
+          </div>
+        </div>
+      </div>
+      <div class="toolbar">
+        <button type="button" id="theme-toggle" class="secondary ghost" aria-label="Переключить тему">Тёмная тема</button>
+        <div class="pill">Лимит: 100 запросов/сутки</div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <h2>Параметры запроса</h2>
+      <form id="analysis-form" class="form-grid">
+        <label class="form-field full-row">
+          <span>ИНН компаний (по одному в строке)</span>
+          <textarea name="inns" rows="3" placeholder="7707083893&#10;1234567890" required></textarea>
+          <p class="help">Можно вставлять списки с разделителями запятая/точка с запятой/перевод строки.</p>
+        </label>
+        <label class="form-field full-row">
+          <span>Периоды (год или квартал, формат: 2023 или 2023-Q1, по одному в строке)</span>
+          <textarea id="periods" name="periods" rows="3" placeholder="2023&#10;2022&#10;2021-Q1" required></textarea>
+          <p id="period-helper" class="help">Периоды сортируются автоматически. Для квартала укажите Q1–Q4. Минимум один период обязателен.</p>
+        </label>
+        <label class="form-field">
+          <span>Режим демонстрации</span>
+          <select name="mockMode" id="mockMode">
+            <option value="false" selected>Проверка через Checko API</option>
+            <option value="true">Демо-данные (без расхода лимита)</option>
+          </select>
+        </label>
+        <fieldset class="full-row checkboxes">
+          <legend>Секции запроса (обязательные поля уже отмечены)</legend>
+          <label><input type="checkbox" name="sections" value="balance_sheet" checked disabled> Баланс (обязательно)</label>
+          <label><input type="checkbox" name="sections" value="income_statement" checked disabled> Отчёт о прибылях и убытках (обязательно)</label>
+          <label><input type="checkbox" name="sections" value="cashflow"> Движение денежных средств</label>
+          <label><input type="checkbox" name="sections" value="segments"> Прочие сегменты</label>
+          <label><input type="checkbox" name="sections" value="notes"> Пояснения/примечания</label>
+          <label><input type="checkbox" name="sections" value="extended" checked disabled> Расширенная детализация</label>
+        </fieldset>
+        <div class="actions full-row">
+          <button type="button" id="estimate" class="secondary">Посчитать запросы</button>
+          <button type="button" id="check-connection" class="secondary">Проверить соединение</button>
+          <button type="submit" class="primary">Запустить анализ</button>
+        </div>
+      </form>
+      <p class="help">Бесплатный тариф Checko ограничен 100 запросами в сутки. Приложение показывает текущий расход, расчёт требуемых запросов и остаток лимита.</p>
+      <p class="help">Ключ Checko нужно передать в переменную окружения <code>CHECKO_API_KEY</code>: локально через <code>.env</code> или <code>export</code>, на Vercel — в Project → Settings → Environment Variables.</p>
+    </section>
+
+    <section id="status" class="notice hidden" role="status" aria-live="polite"></section>
+
+    <section class="card" id="quota-card">
+      <h3>Лимит API</h3>
+      <div id="quota-stats" class="quota"></div>
+      <div id="local-estimate" class="quota"></div>
+      <p class="help">Калькулятор запросов учитывает количество ИНН и периодов. Метка Extended для финансовых показателей устанавливается автоматически.</p>
+    </section>
+
+    <section class="card">
+      <h3>Куда вставлять API key</h3>
+      <ul>
+        <li>Локально: создайте файл <code>.env</code> с переменной <code>CHECKO_API_KEY=ВАШ_КЛЮЧ</code> или выполните <code>export CHECKO_API_KEY=...</code> перед запуском.</li>
+        <li>Vercel: Project → Settings → Environment Variables → ключ <code>CHECKO_API_KEY</code> со значением вашего токена Checko, перезапустите деплой.</li>
+        <li>Дополнительно можно указать <code>CHECKO_DAILY_LIMIT</code> (по умолчанию 100) и <code>CHECKO_API_BASE</code>, если требуется.</li>
+      </ul>
+      <p class="help">Подключение проверяется кнопкой «Проверить соединение» без расхода лимита.</p>
+    </section>
+
+    <section id="results" class="hidden"></section>
+  </main>
+
+  <footer class="container footer">
+    <p>Формулы: POI = 365 × ((Запасыₜ + Запасыₜ₋₁) / 2) / Себестоимость; PPD = 365 × ((ДЗₜ + ДЗₜ₋₁) / 2) / Выручка; PPA = 365 × ((КЗₜ + КЗₜ₋₁) / 2) / Себестоимость; OFC = POI + PPD - PPA.</p>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>
