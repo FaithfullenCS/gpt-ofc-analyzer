@@ -241,10 +241,11 @@ function renderResults(results) {
 }
 
 function parseInns(value) {
-  return value
+  const list = value
     .split(/\n|,|;/)
     .map(item => item.trim())
     .filter(Boolean);
+  return Array.from(new Set(list));
 }
 
 function parsePeriods(value) {

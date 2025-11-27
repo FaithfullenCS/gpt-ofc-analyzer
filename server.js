@@ -343,6 +343,19 @@ function extractFinancesPayload(response) {
   const queue = [response];
   const prioritizedKeys = ['finances', 'data', 'items', 'reports', 'results', 'entries', 'values'];
 
+  const looksLikeReport = entry => {
+    if (!entry || typeof entry !== 'object') return false;
+    return (
+      'year' in entry ||
+      'period' in entry ||
+      'balance_sheet' in entry ||
+      'balance' in entry ||
+      'income_statement' in entry ||
+      'income' in entry ||
+      'financials' in entry
+    );
+  };
+
   while (queue.length) {
     const current = queue.shift();
     if (current === null || current === undefined) continue;
@@ -352,21 +365,25 @@ function extractFinancesPayload(response) {
     }
 
     if (Array.isArray(current)) {
-      const looksLikeFinances = current.some(entry => {
-        return (
-          entry &&
-          typeof entry === 'object' &&
-          ('year' in entry || 'period' in entry || 'balance_sheet' in entry || 'balance' in entry || 'income_statement' in entry)
-        );
-      });
+      const looksLikeFinances = current.some(looksLikeReport);
       if (looksLikeFinances) {
         return current;
       }
+      current.forEach(item => queue.push(item));
       continue;
     }
 
     if (typeof current === 'object') {
       visited.add(current);
+
+      if (current.finances && Array.isArray(current.finances)) {
+        return current.finances;
+      }
+
+      const objectValues = Object.values(current);
+      if (objectValues.length && objectValues.every(looksLikeReport)) {
+        return objectValues;
+      }
 
       for (const key of prioritizedKeys) {
         if (Object.prototype.hasOwnProperty.call(current, key)) {
@@ -374,9 +391,7 @@ function extractFinancesPayload(response) {
         }
       }
 
-      for (const value of Object.values(current)) {
-        queue.push(value);
-      }
+      objectValues.forEach(value => queue.push(value));
     }
   }
 
@@ -388,7 +403,7 @@ async function handleAnalyze(req, res) {
     const body = await parseBody(req);
     const { inns = [], inn, periods = [], year, previousYear, forceMock, ogrn, kpp } = body;
 
-    const innList = Array.isArray(inns) ? inns.filter(Boolean) : [];
+    const innList = Array.from(new Set((Array.isArray(inns) ? inns : []).filter(Boolean)));
     if (inn && !innList.includes(inn)) {
       innList.push(inn);
     }
@@ -510,12 +525,6 @@ function requestListener(req, res) {
     return;
   }
 
-  if (req.method === 'OPTIONS' && parsedUrl.pathname.startsWith('/api/')) {
-    res.writeHead(204, CORS_HEADERS);
-    res.end();
-    return;
-  }
-
   if (req.method === 'GET' && parsedUrl.pathname === '/api/health') {
     respondJson(res, 200, { status: 'ok', mockMode: MOCK_MODE, limit: DAILY_LIMIT, used: usedRequests });
     return;
@@ -530,7 +539,7 @@ function requestListener(req, res) {
     parseBody(req)
       .then(body => {
         const { inns = [], periods = [] } = body;
-        const innCount = Array.isArray(inns) ? inns.filter(Boolean).length : 0;
+        const innCount = Array.isArray(inns) ? Array.from(new Set(inns.filter(Boolean))).length : 0;
         const required = estimatedRequests(innCount);
         respondJson(res, 200, { required, remaining: remainingRequests(), limit: DAILY_LIMIT });
       })
