@@ -50,6 +50,11 @@
           <p id="period-helper" class="help">Периоды сортируются автоматически. Для квартала укажите Q1–Q4. Минимум один период обязателен.</p>
         </label>
         <label class="form-field">
+          <span>Домен/Vercel (куда слать запросы)</span>
+          <input id="api-base" name="api-base" type="url" inputmode="url" autocomplete="url" placeholder="https://gpt-ofc-analyzer.vercel.app" required>
+          <p class="help">По умолчанию используется текущий домен страницы. Если фронтенд открыт локально, укажите домен деплоя (например, https://gpt-ofc-analyzer.vercel.app) для всех /api/* запросов.</p>
+        </label>
+        <label class="form-field">
           <span>Режим демонстрации</span>
           <select name="mockMode" id="mockMode">
             <option value="false" selected>Проверка через Checko API</option>

@@ -6,6 +6,7 @@ const localEstimateBox = document.getElementById('local-estimate');
 const estimateButton = document.getElementById('estimate');
 const connectionButton = document.getElementById('check-connection');
 const themeToggle = document.getElementById('theme-toggle');
+const apiBaseInput = document.getElementById('api-base');
 const innsInput = document.querySelector('textarea[name="inns"]');
 const periodsInput = document.querySelector('textarea[name="periods"]');
 
@@ -62,6 +63,42 @@ function renderMetrics(container, metrics) {
     card.innerHTML = `<span>${item.label}</span><strong>${formatNumber(item.value, item.digits)}${item.suffix || ''}</strong>${item.note ? `<small>${item.note}</small>` : ''}`;
     container.appendChild(card);
   });
+}
+
+function sanitizeBase(value) {
+  if (!value) return window.location.origin;
+  try {
+    const normalized = value.trim();
+    const urlObj = new URL(normalized.includes('://') ? normalized : `https://${normalized}`);
+    return urlObj.origin;
+  } catch (error) {
+    return window.location.origin;
+  }
+}
+
+function getApiBase() {
+  return sanitizeBase(apiBaseInput?.value || localStorage.getItem('apiBase'));
+}
+
+function initApiBase() {
+  const saved = localStorage.getItem('apiBase');
+  const base = sanitizeBase(saved || window.location.origin);
+  if (apiBaseInput) {
+    apiBaseInput.value = base;
+  }
+}
+
+function persistApiBase() {
+  if (!apiBaseInput) return;
+  const base = sanitizeBase(apiBaseInput.value);
+  apiBaseInput.value = base;
+  localStorage.setItem('apiBase', base);
+}
+
+function apiFetch(path, options) {
+  const base = getApiBase();
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  return fetch(`${base}${normalizedPath}`, options);
 }
 
 function renderStatement(target, data) {
@@ -235,7 +272,7 @@ function renderLocalEstimate() {
 
 async function refreshQuota() {
   try {
-    const response = await fetch('/api/quota');
+    const response = await apiFetch('/api/quota');
     const data = await parseJsonResponse(response);
     if (!response.ok) throw new Error(data.error || 'Ошибка обновления лимита');
     quotaStats.innerHTML = `<div class="row"><span>Использовано</span><strong>${data.used} из ${data.limit}</strong></div><div class="row"><span>Остаток</span><strong>${data.remaining}</strong></div>`;
@@ -259,7 +296,7 @@ async function estimateRequests() {
   const payload = { inns, periods };
 
   try {
-    const response = await fetch('/api/estimate', {
+    const response = await apiFetch('/api/estimate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -278,7 +315,7 @@ async function estimateRequests() {
 async function checkConnection() {
   clearStatus();
   try {
-    const response = await fetch('/api/check-connection');
+    const response = await apiFetch('/api/check-connection');
     const data = await parseJsonResponse(response);
     if (!response.ok || !data.ok) throw new Error(data.error || 'Соединение недоступно');
     showStatus('success', 'Соединение с api.checko.ru установлено без расхода лимита.');
@@ -309,7 +346,7 @@ async function analyze(event) {
   showStatus('info', 'Выполняем расчёты...');
 
   try {
-    const response = await fetch('/api/analyze', {
+    const response = await apiFetch('/api/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -340,7 +377,12 @@ estimateButton.addEventListener('click', estimateRequests);
 connectionButton.addEventListener('click', checkConnection);
 innsInput.addEventListener('input', renderLocalEstimate);
 periodsInput.addEventListener('input', renderLocalEstimate);
+apiBaseInput?.addEventListener('change', () => {
+  persistApiBase();
+  refreshQuota();
+});
 themeToggle.addEventListener('click', toggleTheme);
+initApiBase();
 initTheme();
 refreshQuota();
 renderLocalEstimate();

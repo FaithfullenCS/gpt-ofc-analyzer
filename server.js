@@ -22,6 +22,12 @@ try {
 
 let usedRequests = 0;
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
 const mimeTypes = {
   '.html': 'text/html',
   '.css': 'text/css',
@@ -30,7 +36,7 @@ const mimeTypes = {
 };
 
 function respondJson(res, status, payload) {
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', ...CORS_HEADERS });
   res.end(JSON.stringify(payload));
 }
 
@@ -440,6 +446,12 @@ async function handleAnalyze(req, res) {
 
 function requestListener(req, res) {
   const parsedUrl = url.parse(req.url, true);
+
+  if (req.method === 'OPTIONS' && parsedUrl.pathname.startsWith('/api/')) {
+    res.writeHead(204, CORS_HEADERS);
+    res.end();
+    return;
+  }
 
   if (req.method === 'GET' && parsedUrl.pathname === '/api/health') {
     respondJson(res, 200, { status: 'ok', mockMode: MOCK_MODE, limit: DAILY_LIMIT, used: usedRequests });
