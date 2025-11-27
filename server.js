@@ -262,6 +262,7 @@ async function fetchCheckoFinancials(inn, year, options = {}) {
     year,
     key: CHECKO_API_KEY,
     extended: '1',
+    period: 'year',
   });
 
   if (quarter) {
@@ -273,7 +274,9 @@ async function fetchCheckoFinancials(inn, year, options = {}) {
   params.append('sections', normalizedSections.join(','));
 
   const queryUrl = `${CHECKO_BASE_URL}/${encodeURIComponent(inn)}/financials?${params.toString()}`;
-  const data = await httpGetJson(queryUrl);
+  const data = await httpGetJson(queryUrl).catch(err => {
+    throw new Error(`Ошибка запроса к Checko (${queryUrl}): ${err.message}`);
+  });
   increaseUsage(1);
   return data;
 }

@@ -68,7 +68,7 @@ node server.js
 - `data/sample-financials.json` — встроенные данные для демо-режима.
 
 ## Примечания по интеграции с Checko API
-- Базовый путь задаётся переменной `CHECKO_API_BASE`. Запрос формируется как `${CHECKO_API_BASE}/{ИНН}/financials?year={год}&quarter={квартал?}&period=quarter&key={API_KEY}&extended=1&sections=balance_sheet,income_statement,extended,...`.
+- Базовый путь задаётся переменной `CHECKO_API_BASE`. Запрос формируется как `${CHECKO_API_BASE}/{ИНН}/financials?year={год}&period=year|quarter&quarter={квартал?}&key={API_KEY}&extended=1&sections=balance_sheet,income_statement,extended,...` (параметр `period` обязателен, по умолчанию ставится `year`).
 - Обязательные секции (баланс, ОПУ и extended) добавляются автоматически; дополнительные секции управляются чекбоксами на форме.
 - Обратите внимание на дневной лимит (100 запросов на бесплатном тарифе). Используйте калькулятор запросов (ИНН × число периодов) перед массовыми обращениями.
 - Проверка соединения `/api/check-connection` не расходует лимит.
