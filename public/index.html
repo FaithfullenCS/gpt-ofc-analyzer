@@ -11,7 +11,7 @@
     <div class="container">
       <p class="badge">Исследовательский инструмент</p>
       <h1>Анализ операционного финансового цикла российских компаний</h1>
-      <p class="lead">Формулы и расчёты соответствуют методологии кандидатской диссертации. Данные запрашиваются из Checko API с учётом суточного лимита и могут исполняться сразу для нескольких компаний.</p>
+      <p class="lead">Формулы и расчёты соответствуют методологии кандидатской диссертации. Данные загружаются из Checko API или демонстрационного набора.</p>
     </div>
   </header>
 
@@ -19,9 +19,9 @@
     <section class="card">
       <h2>Параметры запроса</h2>
       <form id="analysis-form" class="form-grid">
-        <label class="form-field full-row">
-          <span>ИНН компаний (по одному в строке)</span>
-          <textarea name="inns" rows="3" placeholder="7707083893&#10;1234567890" required></textarea>
+        <label class="form-field">
+          <span>ИНН компании</span>
+          <input type="text" name="inn" placeholder="7707083893" required>
         </label>
         <label class="form-field">
           <span>Текущий год</span>
@@ -34,36 +34,49 @@
         <label class="form-field">
           <span>Режим демонстрации</span>
           <select name="mockMode" id="mockMode">
-            <option value="false" selected>Проверка через Checko API</option>
-            <option value="true">Демо-данные (без расхода лимита)</option>
+            <option value="auto" selected>Авто (использовать Checko при наличии ключа)</option>
+            <option value="true">Всегда демо-данные</option>
           </select>
         </label>
-        <fieldset class="full-row checkboxes">
-          <legend>Секции запроса (обязательные поля уже отмечены)</legend>
-          <label><input type="checkbox" name="sections" value="balance_sheet" checked disabled> Баланс (обязательно)</label>
-          <label><input type="checkbox" name="sections" value="income_statement" checked disabled> Отчёт о прибылях и убытках (обязательно)</label>
-          <label><input type="checkbox" name="sections" value="cashflow"> Движение денежных средств</label>
-          <label><input type="checkbox" name="sections" value="segments"> Прочие сегменты</label>
-          <label><input type="checkbox" name="sections" value="notes"> Пояснения/примечания</label>
-          <label><input type="checkbox" name="sections" value="extended" checked disabled> Расширенная детализация</label>
-        </fieldset>
-        <div class="actions full-row">
-          <button type="button" id="estimate" class="secondary">Посчитать запросы</button>
-          <button type="button" id="check-connection" class="secondary">Проверить соединение</button>
-          <button type="submit" class="primary">Запустить анализ</button>
-        </div>
+        <button type="submit" class="primary">Запустить анализ</button>
       </form>
-      <p class="help">Бесплатный тариф Checko ограничен 100 запросами в сутки. Приложение показывает текущий расход, расчёт требуемых запросов и остаток лимита.</p>
+      <p class="help">Бесплатный тариф Checko ограничен 100 запросами в сутки. В демонстрационном режиме используются встроенные финансовые отчёты.</p>
     </section>
 
     <section id="status" class="notice hidden"></section>
 
-    <section class="card" id="quota-card">
-      <h3>Лимит API</h3>
-      <div id="quota-stats" class="quota"></div>
+    <section id="results" class="grid two-columns hidden">
+      <div class="card">
+        <h3>Операционный финансовый цикл</h3>
+        <div id="ofc-metrics" class="metrics"></div>
+      </div>
+      <div class="card">
+        <h3>Ликвидность</h3>
+        <div id="liquidity-metrics" class="metrics"></div>
+      </div>
+      <div class="card">
+        <h3>Рентабельность</h3>
+        <div id="profitability-metrics" class="metrics"></div>
+      </div>
+      <div class="card">
+        <h3>Финансовая устойчивость</h3>
+        <div id="stability-metrics" class="metrics"></div>
+      </div>
     </section>
 
-    <section id="results" class="hidden"></section>
+    <section id="statements" class="card hidden">
+      <h3>Исходные данные (нормализовано)</h3>
+      <div class="statements-grid">
+        <div>
+          <h4 id="current-year-title">Текущий год</h4>
+          <div id="current-statement" class="statement"></div>
+        </div>
+        <div>
+          <h4 id="previous-year-title">Предыдущий год</h4>
+          <div id="previous-statement" class="statement"></div>
+        </div>
+      </div>
+    </section>
   </main>
 
   <footer class="container footer">

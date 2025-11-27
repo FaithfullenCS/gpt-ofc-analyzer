@@ -1,9 +1,15 @@
 const form = document.getElementById('analysis-form');
 const statusBox = document.getElementById('status');
 const resultsBlock = document.getElementById('results');
-const quotaStats = document.getElementById('quota-stats');
-const estimateButton = document.getElementById('estimate');
-const connectionButton = document.getElementById('check-connection');
+const statementsBlock = document.getElementById('statements');
+const ofcContainer = document.getElementById('ofc-metrics');
+const liquidityContainer = document.getElementById('liquidity-metrics');
+const profitabilityContainer = document.getElementById('profitability-metrics');
+const stabilityContainer = document.getElementById('stability-metrics');
+const currentStatement = document.getElementById('current-statement');
+const previousStatement = document.getElementById('previous-statement');
+const currentTitle = document.getElementById('current-year-title');
+const previousTitle = document.getElementById('previous-year-title');
 
 function formatNumber(value, digits = 2) {
   if (value === null || value === undefined) return '—';
@@ -57,174 +63,21 @@ function renderStatement(target, data) {
   target.innerHTML = rows.map(row => `<div class="row"><span class="label">${row.label}</span><span>${formatNumber(row.value, 0)}</span></div>`).join('');
 }
 
-function renderCompany(result) {
-  const wrapper = document.createElement('section');
-  wrapper.className = 'card company-block';
-
-  const header = document.createElement('div');
-  header.className = 'company-header';
-  header.innerHTML = `<div><p class="badge">${result.source}</p><h3>ИНН ${result.inn}</h3><p class="muted">Год ${result.year}, предыдущий ${result.previousYear}</p></div>`;
-  wrapper.appendChild(header);
-
-  const metricsGrid = document.createElement('div');
-  metricsGrid.className = 'grid two-columns';
-
-  const ofcCard = document.createElement('div');
-  ofcCard.className = 'card nested';
-  ofcCard.innerHTML = '<h4>Операционный финансовый цикл</h4>';
-  const ofcMetrics = document.createElement('div');
-  ofcMetrics.className = 'metrics';
-  renderMetrics(ofcMetrics, [
-    { label: 'POI (оборот запасов)', value: result.metrics.ofc.poi, suffix: ' дн.' },
-    { label: 'PPD (оплата дебиторов)', value: result.metrics.ofc.ppd, suffix: ' дн.' },
-    { label: 'PPA (оплата кредиторов)', value: result.metrics.ofc.ppa, suffix: ' дн.' },
-    { label: 'OFC', value: result.metrics.ofc.ofc, suffix: ' дн.', note: 'POI + PPD - PPA' },
-  ]);
-  ofcCard.appendChild(ofcMetrics);
-
-  const liquidityCard = document.createElement('div');
-  liquidityCard.className = 'card nested';
-  liquidityCard.innerHTML = '<h4>Ликвидность</h4>';
-  const liquidityMetrics = document.createElement('div');
-  liquidityMetrics.className = 'metrics';
-  renderMetrics(liquidityMetrics, [
-    { label: 'Current Ratio', value: result.metrics.liquidity.current_ratio },
-    { label: 'Quick Ratio', value: result.metrics.liquidity.quick_ratio },
-    { label: 'Absolute Ratio', value: result.metrics.liquidity.absolute_ratio },
-  ]);
-  liquidityCard.appendChild(liquidityMetrics);
-
-  const profitabilityCard = document.createElement('div');
-  profitabilityCard.className = 'card nested';
-  profitabilityCard.innerHTML = '<h4>Рентабельность</h4>';
-  const profitabilityMetrics = document.createElement('div');
-  profitabilityMetrics.className = 'metrics';
-  renderMetrics(profitabilityMetrics, [
-    { label: 'ROA', value: result.metrics.profitability.roa, suffix: ' %' },
-    { label: 'ROE', value: result.metrics.profitability.roe, suffix: ' %' },
-    { label: 'Gross Margin', value: result.metrics.profitability.gross_margin, suffix: ' %' },
-    { label: 'Net Margin', value: result.metrics.profitability.net_margin, suffix: ' %' },
-  ]);
-  profitabilityCard.appendChild(profitabilityMetrics);
-
-  const stabilityCard = document.createElement('div');
-  stabilityCard.className = 'card nested';
-  stabilityCard.innerHTML = '<h4>Финансовая устойчивость</h4>';
-  const stabilityMetrics = document.createElement('div');
-  stabilityMetrics.className = 'metrics';
-  renderMetrics(stabilityMetrics, [
-    { label: 'Autonomy', value: result.metrics.stability.autonomy, suffix: ' %' },
-    { label: 'Financial Leverage', value: result.metrics.stability.financial_leverage },
-    { label: 'Debt Ratio', value: result.metrics.stability.debt_ratio, suffix: ' %' },
-    { label: 'D/E Ratio', value: result.metrics.stability.debt_to_equity },
-  ]);
-  stabilityCard.appendChild(stabilityMetrics);
-
-  metricsGrid.appendChild(ofcCard);
-  metricsGrid.appendChild(liquidityCard);
-  metricsGrid.appendChild(profitabilityCard);
-  metricsGrid.appendChild(stabilityCard);
-  wrapper.appendChild(metricsGrid);
-
-  const statements = document.createElement('div');
-  statements.className = 'statements-grid';
-  const currentCol = document.createElement('div');
-  currentCol.innerHTML = `<h4>Текущий год (${result.year})</h4>`;
-  const currentStatement = document.createElement('div');
-  currentStatement.className = 'statement';
-  renderStatement(currentStatement, result.statements.current);
-  currentCol.appendChild(currentStatement);
-
-  const prevCol = document.createElement('div');
-  prevCol.innerHTML = `<h4>Предыдущий год (${result.previousYear})</h4>`;
-  const prevStatement = document.createElement('div');
-  prevStatement.className = 'statement';
-  renderStatement(prevStatement, result.statements.previous);
-  prevCol.appendChild(prevStatement);
-
-  statements.appendChild(currentCol);
-  statements.appendChild(prevCol);
-  wrapper.appendChild(statements);
-
-  return wrapper;
-}
-
-function renderResults(results) {
-  resultsBlock.innerHTML = '';
-  if (!Array.isArray(results) || !results.length) {
-    resultsBlock.classList.add('hidden');
-    return;
-  }
-  results.forEach(item => resultsBlock.appendChild(renderCompany(item)));
-  resultsBlock.classList.remove('hidden');
-}
-
-function parseInns(value) {
-  return value
-    .split(/\n|,|;/)
-    .map(item => item.trim())
-    .filter(Boolean);
-}
-
-async function refreshQuota() {
-  try {
-    const response = await fetch('/api/quota');
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Ошибка обновления лимита');
-    quotaStats.innerHTML = `<div class="row"><span>Использовано</span><strong>${data.used} из ${data.limit}</strong></div><div class="row"><span>Остаток</span><strong>${data.remaining}</strong></div>`;
-  } catch (error) {
-    quotaStats.innerHTML = `<p class="help">${error.message}</p>`;
-  }
-}
-
-async function estimateRequests() {
-  clearStatus();
-  const formData = new FormData(form);
-  const inns = parseInns(formData.get('inns') || '');
-  const payload = { inns, includePreviousYear: true };
-
-  try {
-    const response = await fetch('/api/estimate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Не удалось оценить запросы');
-    showStatus('info', `Потребуется ~${data.required} запросов. Остаток лимита: ${data.remaining}/${data.limit}.`);
-  } catch (error) {
-    showStatus('error', error.message);
-  }
-}
-
-async function checkConnection() {
-  clearStatus();
-  try {
-    const response = await fetch('/api/check-connection');
-    const data = await response.json();
-    if (!response.ok || !data.ok) throw new Error(data.error || 'Соединение недоступно');
-    showStatus('success', 'Соединение с api.checko.ru установлено без расхода лимита.');
-  } catch (error) {
-    showStatus('error', error.message);
-  }
-}
-
 async function analyze(event) {
   event.preventDefault();
   clearStatus();
   resultsBlock.classList.add('hidden');
+  statementsBlock.classList.add('hidden');
 
   const formData = new FormData(form);
-  const inns = parseInns(formData.get('inns') || '');
-  const sections = formData.getAll('sections');
   const payload = {
-    inns,
+    inn: formData.get('inn'),
     year: formData.get('year'),
     previousYear: formData.get('previousYear') || undefined,
-    sections,
   };
 
-  if (formData.get('mockMode') === 'true') {
+  const mockMode = formData.get('mockMode');
+  if (mockMode === 'true') {
     payload.forceMock = true;
   }
 
@@ -242,9 +95,43 @@ async function analyze(event) {
       throw new Error(data.error || 'Неизвестная ошибка');
     }
 
-    renderResults(data.results);
-    showStatus('success', `Запрос выполнен. Секции: ${data.meta.sections.join(', ')}. Использовано ${data.meta.used}/${data.meta.limit}.`);
-    refreshQuota();
+    const { metrics, meta, statements } = data;
+    showStatus('success', `Источник: ${meta.source}. ИНН ${meta.inn}, год ${meta.year} (пред. ${meta.previousYear}).`);
+
+    renderMetrics(ofcContainer, [
+      { label: 'POI (оборот запасов)', value: metrics.ofc.poi, suffix: ' дн.' },
+      { label: 'PPD (оплата дебиторов)', value: metrics.ofc.ppd, suffix: ' дн.' },
+      { label: 'PPA (оплата кредиторов)', value: metrics.ofc.ppa, suffix: ' дн.' },
+      { label: 'OFC', value: metrics.ofc.ofc, suffix: ' дн.', note: 'POI + PPD - PPA' },
+    ]);
+
+    renderMetrics(liquidityContainer, [
+      { label: 'Current Ratio', value: metrics.liquidity.current_ratio },
+      { label: 'Quick Ratio', value: metrics.liquidity.quick_ratio },
+      { label: 'Absolute Ratio', value: metrics.liquidity.absolute_ratio },
+    ]);
+
+    renderMetrics(profitabilityContainer, [
+      { label: 'ROA', value: metrics.profitability.roa, suffix: ' %' },
+      { label: 'ROE', value: metrics.profitability.roe, suffix: ' %' },
+      { label: 'Gross Margin', value: metrics.profitability.gross_margin, suffix: ' %' },
+      { label: 'Net Margin', value: metrics.profitability.net_margin, suffix: ' %' },
+    ]);
+
+    renderMetrics(stabilityContainer, [
+      { label: 'Autonomy', value: metrics.stability.autonomy, suffix: ' %' },
+      { label: 'Financial Leverage', value: metrics.stability.financial_leverage },
+      { label: 'Debt Ratio', value: metrics.stability.debt_ratio, suffix: ' %' },
+      { label: 'D/E Ratio', value: metrics.stability.debt_to_equity },
+    ]);
+
+    currentTitle.textContent = `Текущий год (${meta.year})`;
+    previousTitle.textContent = `Предыдущий год (${meta.previousYear})`;
+    renderStatement(currentStatement, statements.current);
+    renderStatement(previousStatement, statements.previous);
+
+    resultsBlock.classList.remove('hidden');
+    statementsBlock.classList.remove('hidden');
   } catch (error) {
     console.error(error);
     showStatus('error', error.message || 'Не удалось выполнить запрос');
@@ -252,6 +139,3 @@ async function analyze(event) {
 }
 
 form.addEventListener('submit', analyze);
-estimateButton.addEventListener('click', estimateRequests);
-connectionButton.addEventListener('click', checkConnection);
-refreshQuota();
