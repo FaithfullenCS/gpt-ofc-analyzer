@@ -66,7 +66,7 @@ h1 { font-size: 32px; margin: 12px 0; }
   font-size: 14px;
 }
 
-input, select, button, textarea {
+input, select, button {
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid var(--border);
@@ -75,8 +75,7 @@ input, select, button, textarea {
   font-size: 15px;
 }
 
-input:focus, select:focus, textarea:focus { outline: 2px solid rgba(34, 211, 238, 0.4); border-color: var(--accent); }
-textarea { resize: vertical; min-height: 90px; }
+input:focus, select:focus { outline: 2px solid rgba(34, 211, 238, 0.4); border-color: var(--accent); }
 
 button.primary {
   background: linear-gradient(120deg, #22d3ee, #6366f1);
@@ -88,8 +87,6 @@ button.primary {
 }
 
 button.primary:hover { transform: translateY(-1px); box-shadow: 0 10px 30px rgba(34, 211, 238, 0.25); }
-button.secondary { background: rgba(255,255,255,0.04); cursor: pointer; }
-button.secondary:hover { border-color: var(--accent); }
 
 .help { color: var(--muted); font-size: 14px; margin-top: 10px; }
 
@@ -149,17 +146,3 @@ button.secondary:hover { border-color: var(--accent); }
 .footer { color: var(--muted); font-size: 13px; padding: 12px 0 24px; }
 
 .hidden { display: none; }
-
-.full-row { grid-column: 1 / -1; }
-.checkboxes { border: 1px solid var(--border); padding: 12px; border-radius: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; }
-.checkboxes legend { color: var(--text); margin-bottom: 8px; }
-.checkboxes label { color: var(--muted); font-size: 14px; }
-.actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-
-.quota .row { display: flex; justify-content: space-between; padding: 6px 0; color: var(--muted); }
-.quota strong { color: var(--text); }
-
-.company-block .company-header { display: flex; align-items: center; justify-content: space-between; }
-.company-block .muted { color: var(--muted); margin: 0; }
-.company-block .card.nested { margin: 6px 0; box-shadow: none; }
-.period-block { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; }

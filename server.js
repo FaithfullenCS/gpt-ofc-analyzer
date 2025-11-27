@@ -3,13 +3,11 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const url = require('url');
-const net = require('net');
 
 const PORT = process.env.PORT || 3000;
 const CHECKO_API_KEY = process.env.CHECKO_API_KEY;
 const CHECKO_BASE_URL = process.env.CHECKO_API_BASE || 'https://api.checko.ru/v3/companies';
-const MOCK_MODE = process.env.CHECKO_MOCK_MODE === 'true';
-const DAILY_LIMIT = Number(process.env.CHECKO_DAILY_LIMIT || 100);
+const MOCK_MODE = process.env.CHECKO_MOCK_MODE === 'true' || !CHECKO_API_KEY;
 
 const sampleDataPath = path.join(__dirname, 'data', 'sample-financials.json');
 let sampleReports = [];
@@ -17,10 +15,8 @@ try {
   const sampleContent = fs.readFileSync(sampleDataPath, 'utf8');
   sampleReports = JSON.parse(sampleContent);
 } catch (error) {
-  sampleReports = [];
+  console.error('Не удалось загрузить демонстрационные данные', error);
 }
-
-let usedRequests = 0;
 
 const mimeTypes = {
   '.html': 'text/html',
@@ -114,14 +110,6 @@ function normalizeField(value) {
     return 0;
   }
   return Number(value);
-}
-
-function requiredSections(selections = []) {
-  const set = new Set(selections);
-  set.add('balance_sheet');
-  set.add('income_statement');
-  set.add('extended');
-  return Array.from(set);
 }
 
 function average(current, previous) {
@@ -231,143 +219,48 @@ function calculateMetrics(currentReport, previousReport) {
   };
 }
 
-function increaseUsage(count) {
-  usedRequests += count;
-  if (usedRequests < 0) usedRequests = 0;
-}
-
-function remainingRequests() {
-  const remaining = DAILY_LIMIT - usedRequests;
-  return remaining > 0 ? remaining : 0;
-}
-
-function estimatedRequests(innCount, periodCount) {
-  return innCount * Math.max(periodCount, 0);
-}
-
-async function fetchCheckoFinancials(inn, year, options = {}) {
-  const { forceMock = false, sections = [], quarter } = options;
+async function fetchCheckoFinancials(inn, year, forceMock) {
   if (forceMock || MOCK_MODE) {
     return pickReport(year);
   }
 
-  if (!CHECKO_API_KEY) {
-    throw new Error('CHECKO_API_KEY не задан. Укажите ключ или включите демо-режим.');
-  }
-
-  const params = new url.URLSearchParams({
-    year,
-    key: CHECKO_API_KEY,
-    extended: '1',
-  });
-
-  if (quarter) {
-    params.append('period', 'quarter');
-    params.append('quarter', quarter);
-  }
-
-  const normalizedSections = requiredSections(sections);
-  params.append('sections', normalizedSections.join(','));
-
-  const queryUrl = `${CHECKO_BASE_URL}/${encodeURIComponent(inn)}/financials?${params.toString()}`;
-  const data = await httpGetJson(queryUrl);
-  increaseUsage(1);
-  return data;
+  const queryUrl = `${CHECKO_BASE_URL}/${encodeURIComponent(inn)}/financials?year=${year}&key=${encodeURIComponent(CHECKO_API_KEY)}`;
+  return httpGetJson(queryUrl);
 }
 
 async function handleAnalyze(req, res) {
   try {
     const body = await parseBody(req);
-    const { inns = [], inn, periods = [], year, previousYear, forceMock, sections = [] } = body;
+    const { inn, year, previousYear, forceMock } = body;
 
-    const innList = Array.isArray(inns) ? inns.filter(Boolean) : [];
-    if (inn && !innList.includes(inn)) {
-      innList.push(inn);
-    }
-
-    let periodList = Array.isArray(periods) ? periods.filter(p => p && p.year) : [];
-    if (!periodList.length && year) {
-      periodList.push({ year });
-    }
-    if (!periodList.length) {
-      respondJson(res, 400, { error: 'Необходимо указать хотя бы один период (год или квартал).' });
-      return;
-    }
-    if (previousYear && !periodList.find(p => Number(p.year) === Number(previousYear))) {
-      periodList.push({ year: previousYear });
-    }
-
-    const sortedPeriods = periodList
-      .map(p => ({ year: Number(p.year), quarter: p.quarter ? Number(p.quarter) : undefined }))
-      .sort((a, b) => {
-        if (a.year !== b.year) return a.year - b.year;
-        const aq = a.quarter || 5;
-        const bq = b.quarter || 5;
-        return aq - bq;
-      });
-
-    if (!innList.length) {
-      respondJson(res, 400, { error: 'Необходимо указать хотя бы один ИНН.' });
+    if (!inn || !year) {
+      respondJson(res, 400, { error: 'Необходимо указать ИНН и год для анализа.' });
       return;
     }
 
+    const prevYear = previousYear || Number(year) - 1;
     const mock = forceMock === true || forceMock === 'true';
-    const neededRequests = mock ? 0 : estimatedRequests(innList.length, sortedPeriods.length);
 
-    if (!mock && remainingRequests() < neededRequests) {
-      respondJson(res, 429, {
-        error: 'Недостаточно суточного лимита API для выполнения запроса.',
-        required: neededRequests,
-        remaining: remainingRequests(),
-      });
-      return;
-    }
+    const [currentReport, prevReport] = await Promise.all([
+      fetchCheckoFinancials(inn, year, mock),
+      fetchCheckoFinancials(inn, prevYear, mock),
+    ]);
 
-    const normalizedSections = requiredSections(sections);
-
-    const computations = await Promise.all(
-      innList.map(async candidateInn => {
-        const perPeriod = [];
-        let previousReport = null;
-
-        for (const period of sortedPeriods) {
-          const currentReport = await fetchCheckoFinancials(candidateInn, period.year, {
-            forceMock: mock,
-            sections: normalizedSections,
-            quarter: period.quarter,
-          });
-
-          const metrics = calculateMetrics(currentReport, previousReport);
-          perPeriod.push({
-            inn: candidateInn,
-            period,
-            previousPeriod: previousReport ? previousReport.__period : null,
-            source: mock || MOCK_MODE ? 'Демонстрационные данные' : 'Checko API',
-            metrics,
-            statements: {
-              current: metrics.normalized.current,
-              previous: metrics.normalized.previous,
-            },
-          });
-
-          previousReport = { ...currentReport, __period: period };
-        }
-
-        return {
-          inn: candidateInn,
-          periods: perPeriod,
-        };
-      })
-    );
+    const metrics = calculateMetrics(currentReport, prevReport);
 
     respondJson(res, 200, {
       meta: {
+        inn,
+        year,
+        previousYear: prevYear,
+        source: mock || MOCK_MODE ? 'Демонстрационные данные' : 'Checko API',
         mockMode: mock || MOCK_MODE,
-        sections: normalizedSections,
-        used: usedRequests,
-        limit: DAILY_LIMIT,
       },
-      results: computations,
+      metrics,
+      statements: {
+        current: metrics.normalized.current,
+        previous: metrics.normalized.previous,
+      },
     });
   } catch (error) {
     console.error('Ошибка при анализе ОФЦ', error);
@@ -379,42 +272,7 @@ const server = http.createServer((req, res) => {
   const parsedUrl = url.parse(req.url, true);
 
   if (req.method === 'GET' && parsedUrl.pathname === '/api/health') {
-    respondJson(res, 200, { status: 'ok', mockMode: MOCK_MODE, limit: DAILY_LIMIT, used: usedRequests });
-    return;
-  }
-
-  if (req.method === 'GET' && parsedUrl.pathname === '/api/quota') {
-    respondJson(res, 200, { limit: DAILY_LIMIT, used: usedRequests, remaining: remainingRequests() });
-    return;
-  }
-
-  if (req.method === 'POST' && parsedUrl.pathname === '/api/estimate') {
-    parseBody(req)
-      .then(body => {
-        const { inns = [], periods = [] } = body;
-        const innCount = Array.isArray(inns) ? inns.filter(Boolean).length : 0;
-        const periodCount = Array.isArray(periods) ? periods.filter(p => p && p.year).length : 0;
-        const required = estimatedRequests(innCount, periodCount);
-        respondJson(res, 200, { required, remaining: remainingRequests(), limit: DAILY_LIMIT });
-      })
-      .catch(() => respondJson(res, 400, { error: 'Некорректное тело запроса' }));
-    return;
-  }
-
-  if (req.method === 'GET' && parsedUrl.pathname === '/api/check-connection') {
-    const socket = net.connect(443, 'api.checko.ru');
-    socket.setTimeout(3000);
-    socket.on('connect', () => {
-      socket.destroy();
-      respondJson(res, 200, { ok: true });
-    });
-    socket.on('error', (err) => {
-      respondJson(res, 503, { ok: false, error: err.message });
-    });
-    socket.on('timeout', () => {
-      socket.destroy();
-      respondJson(res, 504, { ok: false, error: 'Таймаут соединения' });
-    });
+    respondJson(res, 200, { status: 'ok', mockMode: MOCK_MODE });
     return;
   }
 
