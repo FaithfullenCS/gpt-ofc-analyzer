@@ -2,7 +2,7 @@ const http = require('http');
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
-const url = require('url');
+const { URL, URLSearchParams } = require('url');
 const net = require('net');
 
 const PORT = process.env.PORT || 3000;
@@ -10,6 +10,16 @@ const CHECKO_API_KEY = process.env.CHECKO_API_KEY;
 const CHECKO_BASE_URL = process.env.CHECKO_API_BASE || 'https://api.checko.ru/v2/finances';
 const MOCK_MODE = process.env.CHECKO_MOCK_MODE === 'true';
 const DAILY_LIMIT = Number(process.env.CHECKO_DAILY_LIMIT || 100);
+
+const parsedCheckoBase = (() => {
+  try {
+    return new URL(CHECKO_BASE_URL);
+  } catch (error) {
+    return null;
+  }
+})();
+const CHECKO_HOST = parsedCheckoBase?.hostname || 'api.checko.ru';
+const CHECKO_PORT = parsedCheckoBase?.port || (parsedCheckoBase?.protocol === 'http:' ? 80 : 443);
 
 const sampleDataPath = path.join(__dirname, 'data', 'sample-financials.json');
 let sampleReports = [];
@@ -283,7 +293,7 @@ async function fetchCheckoFinancials(params, options = {}) {
     throw new Error('CHECKO_API_KEY не задан. Укажите ключ или включите демо-режим.');
   }
 
-  const query = new url.URLSearchParams({
+  const query = new URLSearchParams({
     key: CHECKO_API_KEY,
     extended: 'true',
     inn,
@@ -326,6 +336,51 @@ function selectReport(finances = [], targetPeriod) {
   }
 
   return matches[0].report;
+}
+
+function extractFinancesPayload(response) {
+  const visited = new Set();
+  const queue = [response];
+  const prioritizedKeys = ['finances', 'data', 'items', 'reports', 'results', 'entries', 'values'];
+
+  while (queue.length) {
+    const current = queue.shift();
+    if (current === null || current === undefined) continue;
+
+    if (typeof current === 'object' && visited.has(current)) {
+      continue;
+    }
+
+    if (Array.isArray(current)) {
+      const looksLikeFinances = current.some(entry => {
+        return (
+          entry &&
+          typeof entry === 'object' &&
+          ('year' in entry || 'period' in entry || 'balance_sheet' in entry || 'balance' in entry || 'income_statement' in entry)
+        );
+      });
+      if (looksLikeFinances) {
+        return current;
+      }
+      continue;
+    }
+
+    if (typeof current === 'object') {
+      visited.add(current);
+
+      for (const key of prioritizedKeys) {
+        if (Object.prototype.hasOwnProperty.call(current, key)) {
+          queue.push(current[key]);
+        }
+      }
+
+      for (const value of Object.values(current)) {
+        queue.push(value);
+      }
+    }
+  }
+
+  return [];
 }
 
 async function handleAnalyze(req, res) {
@@ -392,10 +447,12 @@ async function handleAnalyze(req, res) {
           }
         );
 
-        const finances = Array.isArray(response) ? response : Array.isArray(response.finances) ? response.finances : [];
+        const finances = extractFinancesPayload(response);
 
         if (!finances.length) {
-          throw new Error(`Не найдены финансовые данные для ИНН ${candidateInn}`);
+          const responseKeys = response && typeof response === 'object' ? Object.keys(response) : [];
+          const hint = responseKeys.length ? ` (ключи ответа: ${responseKeys.slice(0, 5).join(', ')})` : '';
+          throw new Error(`Не найдены финансовые данные для ИНН ${candidateInn}${hint}`);
         }
 
         for (const period of sortedPeriods) {
@@ -445,7 +502,13 @@ async function handleAnalyze(req, res) {
 }
 
 function requestListener(req, res) {
-  const parsedUrl = url.parse(req.url, true);
+  const parsedUrl = new URL(req.url, `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host || 'localhost'}`);
+
+  if (req.method === 'OPTIONS' && parsedUrl.pathname.startsWith('/api/')) {
+    res.writeHead(204, CORS_HEADERS);
+    res.end();
+    return;
+  }
 
   if (req.method === 'OPTIONS' && parsedUrl.pathname.startsWith('/api/')) {
     res.writeHead(204, CORS_HEADERS);
@@ -476,7 +539,7 @@ function requestListener(req, res) {
   }
 
   if (req.method === 'GET' && parsedUrl.pathname === '/api/check-connection') {
-    const socket = net.connect(443, 'api.checko.ru');
+    const socket = net.connect(CHECKO_PORT, CHECKO_HOST);
     socket.setTimeout(3000);
     socket.on('connect', () => {
       socket.destroy();
