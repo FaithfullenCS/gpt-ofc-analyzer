@@ -24,7 +24,7 @@
           </div>
           <div>
             <strong>3. Запрос</strong>
-            <p>Вставьте ИНН и периоды, уточните секции, затем «Посчитать запросы» и «Запустить анализ».</p>
+            <p>Вставьте ИНН и периоды, затем «Посчитать запросы» и «Запустить анализ»: сервер сам запрашивает расширенные финансы.</p>
           </div>
         </div>
       </div>
@@ -50,6 +50,11 @@
           <p id="period-helper" class="help">Периоды сортируются автоматически. Для квартала укажите Q1–Q4. Минимум один период обязателен.</p>
         </label>
         <label class="form-field">
+          <span>Домен/Vercel (куда слать запросы)</span>
+          <input id="api-base" name="api-base" type="url" inputmode="url" autocomplete="url" placeholder="https://gpt-ofc-analyzer.vercel.app" required>
+          <p class="help">По умолчанию используется текущий домен страницы. Если фронтенд открыт локально, укажите домен деплоя (например, https://gpt-ofc-analyzer.vercel.app) для всех /api/* запросов.</p>
+        </label>
+        <label class="form-field">
           <span>Режим демонстрации</span>
           <select name="mockMode" id="mockMode">
             <option value="false" selected>Проверка через Checko API</option>
@@ -57,7 +62,7 @@
           </select>
         </label>
         <fieldset class="full-row checkboxes">
-          <legend>Секции запроса (обязательные поля уже отмечены)</legend>
+          <legend>Секции запроса (эндпоинт /v2/finances возвращает расширенный набор)</legend>
           <label><input type="checkbox" name="sections" value="balance_sheet" checked disabled> Баланс (обязательно)</label>
           <label><input type="checkbox" name="sections" value="income_statement" checked disabled> Отчёт о прибылях и убытках (обязательно)</label>
           <label><input type="checkbox" name="sections" value="cashflow"> Движение денежных средств</label>
@@ -71,7 +76,7 @@
           <button type="submit" class="primary">Запустить анализ</button>
         </div>
       </form>
-      <p class="help">Бесплатный тариф Checko ограничен 100 запросами в сутки. Приложение показывает текущий расход, расчёт требуемых запросов и остаток лимита.</p>
+      <p class="help">Бесплатный тариф Checko ограничен 100 запросами в сутки. Приложение показывает текущий расход, расчёт требуемых запросов и остаток лимита (один запрос на ИНН).</p>
       <p class="help">Ключ Checko нужно передать в переменную окружения <code>CHECKO_API_KEY</code>: локально через <code>.env</code> или <code>export</code>, на Vercel — в Project → Settings → Environment Variables.</p>
     </section>
 
@@ -81,7 +86,7 @@
       <h3>Лимит API</h3>
       <div id="quota-stats" class="quota"></div>
       <div id="local-estimate" class="quota"></div>
-      <p class="help">Калькулятор запросов учитывает количество ИНН и периодов. Метка Extended для финансовых показателей устанавливается автоматически.</p>
+      <p class="help">Калькулятор считает по числу ИНН (периоды выбираются из массива <code>finances</code>). Метка Extended и обязательные секции выставляются автоматически.</p>
     </section>
 
     <section class="card">
@@ -91,7 +96,7 @@
         <li>Vercel: Project → Settings → Environment Variables → ключ <code>CHECKO_API_KEY</code> со значением вашего токена Checko, перезапустите деплой.</li>
         <li>Дополнительно можно указать <code>CHECKO_DAILY_LIMIT</code> (по умолчанию 100) и <code>CHECKO_API_BASE</code>, если требуется.</li>
       </ul>
-      <p class="help">Подключение проверяется кнопкой «Проверить соединение» без расхода лимита.</p>
+      <p class="help">Подключение проверяется кнопкой «Проверить соединение» без расхода лимита. Для запроса требуется только ключ <code>CHECKO_API_KEY</code> и ИНН (при наличии можно добавить OGRN/KPP на серверной стороне).</p>
     </section>
 
     <section id="results" class="hidden"></section>
