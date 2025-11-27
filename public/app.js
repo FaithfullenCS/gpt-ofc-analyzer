@@ -319,7 +319,8 @@ async function analyze(event) {
 
     const data = await parseJsonResponse(response);
     if (!response.ok) {
-      throw new Error(data.error || 'Неизвестная ошибка');
+      const details = data.details ? `: ${data.details}` : '';
+      throw new Error((data.error || 'Неизвестная ошибка') + details);
     }
 
     renderResults(data.results);

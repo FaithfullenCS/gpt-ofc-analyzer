@@ -88,19 +88,22 @@ function httpGetJson(targetUrl) {
         data += chunk.toString();
       });
       res.on('end', () => {
+        const preview = data ? data.slice(0, 200) : '';
+
         if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
           try {
             resolve(JSON.parse(data || '{}'));
           } catch (error) {
-            reject(new Error('Не удалось разобрать ответ API'));
+            reject(new Error(`Не удалось разобрать ответ API (${preview || 'пустой ответ'})`));
           }
-        } else {
-          reject(new Error(`Запрос завершился с кодом ${res.statusCode || 500}`));
+          return;
         }
+
+        reject(new Error(`API вернул код ${res.statusCode || 500}: ${preview || 'без тела ответа'}`));
       });
     });
 
-    request.on('error', reject);
+    request.on('error', err => reject(new Error(`Ошибка сети при обращении к API: ${err.message}`)));
   });
 }
 
@@ -371,7 +374,7 @@ async function handleAnalyze(req, res) {
     });
   } catch (error) {
     console.error('Ошибка при анализе ОФЦ', error);
-    respondJson(res, 500, { error: 'Не удалось выполнить анализ', details: error.message });
+    respondJson(res, 502, { error: 'Не удалось выполнить анализ', details: error.message });
   }
 }
 
