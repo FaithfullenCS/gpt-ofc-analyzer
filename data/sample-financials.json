@@ -1,0 +1,42 @@
+[
+  {
+    "year": 2023,
+    "balance_sheet": {
+      "inventories": 1500000,
+      "accounts_receivable": 2200000,
+      "accounts_payable": 1800000,
+      "current_assets": 5600000,
+      "current_liabilities": 2600000,
+      "cash_and_cash_equivalents": 900000,
+      "total_assets": 12400000,
+      "total_liabilities": 6100000,
+      "equity": 6300000
+    },
+    "income_statement": {
+      "revenue": 15400000,
+      "cost_of_goods_sold": 9100000,
+      "gross_profit": 6300000,
+      "net_income": 2100000
+    }
+  },
+  {
+    "year": 2022,
+    "balance_sheet": {
+      "inventories": 1350000,
+      "accounts_receivable": 1980000,
+      "accounts_payable": 1500000,
+      "current_assets": 5200000,
+      "current_liabilities": 2400000,
+      "cash_and_cash_equivalents": 820000,
+      "total_assets": 11500000,
+      "total_liabilities": 5700000,
+      "equity": 5800000
+    },
+    "income_statement": {
+      "revenue": 14200000,
+      "cost_of_goods_sold": 8600000,
+      "gross_profit": 5600000,
+      "net_income": 1900000
+    }
+  }
+]
